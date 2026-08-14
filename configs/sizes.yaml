@@ -1,0 +1,26 @@
+vocab_size: 4096
+context_length: 256
+theta: 10000.0
+
+sizes:
+  1M:
+    d_model: 96
+    num_layers: 8
+    num_heads: 2
+    d_ff: 320
+  4M:
+    d_model: 128
+    num_layers: 19
+    num_heads: 2
+    d_ff: 384
+  16M:
+    d_model: 256
+    num_layers: 20
+    num_heads: 2
+    d_ff: 704
+  64M:
+    d_model: 384
+    num_layers: 35
+    num_heads: 2
+    d_ff: 1088
+
