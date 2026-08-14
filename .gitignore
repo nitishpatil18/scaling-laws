@@ -4,3 +4,5 @@ __pycache__/
 results/*.jsonl
 data/
 .DS_Store
+checkpoints/
+checkpoints/

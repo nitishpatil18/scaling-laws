@@ -1,5 +1,6 @@
 import sys
 sys.path.insert(0, 'src')
+import time
 import yaml
 import json
 import numpy as np
@@ -9,9 +10,12 @@ from utils import get_device
 from data_utils import get_batch, save_checkpoint
 from optimizer import AdamW, get_lr_cosine_schedule, gradient_clipping
 from flops import training_flops
+from count_params import count_params
+import os
 
-def train(size_name, configs_path='configs/sizes.yaml', total_steps=2000,
-          warmup_steps=100, batch_size=32, max_lr=3e-4, min_lr=3e-5,
+
+def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
+          warmup_frac=0.05, batch_size=32, max_lr=3e-4, min_lr=3e-5,
           weight_decay=0.1, max_grad_norm=1.0, eval_interval=200, eval_iters=20,
           log_every=100):
     with open(configs_path) as f:
@@ -21,6 +25,16 @@ def train(size_name, configs_path='configs/sizes.yaml', total_steps=2000,
     vocab_size = cfg['vocab_size']
     context_length = cfg['context_length']
     theta = cfg['theta']
+
+    _, non_embed_params = count_params(
+        vocab_size, context_length, size_cfg['d_model'], size_cfg['num_layers'],
+        size_cfg['num_heads'], size_cfg['d_ff'], theta,
+    )
+    target_tokens = tokens_per_param * non_embed_params
+    total_steps = max(1, target_tokens // (batch_size * context_length))
+    warmup_steps = max(1, int(total_steps * warmup_frac))
+    print(f'{size_name}: non_embed_params={non_embed_params:,} target_tokens={target_tokens:,} '
+          f'total_steps={total_steps} warmup_steps={warmup_steps}')
 
     device = get_device()
     train_data = np.memmap('data/train_tokens.bin', dtype=np.uint16, mode='r')
@@ -45,7 +59,11 @@ def train(size_name, configs_path='configs/sizes.yaml', total_steps=2000,
         model.train()
         return sum(losses) / len(losses)
 
+    os.makedirs('checkpoints', exist_ok=True)
+    ckpt_path = f'checkpoints/{size_name}.pt'   
+
     model.train()
+    start_time = time.time()
     for step in range(total_steps):
         lr = get_lr_cosine_schedule(step, max_lr, min_lr, warmup_steps, total_steps)
         for group in optimizer.param_groups:
@@ -63,6 +81,10 @@ def train(size_name, configs_path='configs/sizes.yaml', total_steps=2000,
         if step % log_every == 0:
             print(f'step {step:5d} | lr {lr:.2e} | train_loss {loss.item():.4f}')
 
+        if step % eval_interval == 0 and step > 0:
+            save_checkpoint(model, optimizer, step, ckpt_path)
+
+    elapsed = time.time() - start_time
     final_val_loss = estimate_loss(val_data, eval_iters)
 
     total_tokens = total_steps * batch_size * context_length
@@ -73,6 +95,7 @@ def train(size_name, configs_path='configs/sizes.yaml', total_steps=2000,
     result = {
         'size': size_name, 'final_train_loss': loss.item(),
         'final_val_loss': final_val_loss, 'total_tokens': total_tokens, 'flops': flops,
+        'elapsed_sec': elapsed, 'steps_per_sec': total_steps / elapsed,
     }
     with open('results/runs.jsonl', 'a') as f:
         f.write(json.dumps(result) + '\n')
