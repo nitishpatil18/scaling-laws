@@ -31,7 +31,7 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
         size_cfg['num_heads'], size_cfg['d_ff'], theta,
     )
     target_tokens = tokens_per_param * non_embed_params
-    total_steps = max(1, target_tokens // (batch_size * context_length))
+    total_steps = max(1, int(target_tokens // (batch_size * context_length)))
     warmup_steps = max(1, int(total_steps * warmup_frac))
     print(f'{size_name}: non_embed_params={non_embed_params:,} target_tokens={target_tokens:,} '
           f'total_steps={total_steps} warmup_steps={warmup_steps}')
@@ -48,6 +48,14 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
 
     optimizer = AdamW(model.parameters(), lr=max_lr, weight_decay=weight_decay)
 
+    os.makedirs('checkpoints', exist_ok=True)
+    ckpt_path = f'checkpoints/{size_name}.pt'
+    start_step = 0
+    if os.path.exists(ckpt_path):
+        from data_utils import load_checkpoint
+        start_step = load_checkpoint(ckpt_path, model, optimizer) + 1
+        print(f'resumed from step {start_step}')
+
     def estimate_loss(data, num_batches):
         model.eval()
         losses = []
@@ -59,12 +67,9 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
         model.train()
         return sum(losses) / len(losses)
 
-    os.makedirs('checkpoints', exist_ok=True)
-    ckpt_path = f'checkpoints/{size_name}.pt'   
-
     model.train()
     start_time = time.time()
-    for step in range(total_steps):
+    for step in range(start_step, total_steps):
         lr = get_lr_cosine_schedule(step, max_lr, min_lr, warmup_steps, total_steps)
         for group in optimizer.param_groups:
             group['lr'] = lr
