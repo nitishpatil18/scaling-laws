@@ -13,6 +13,8 @@ from optimizer import AdamW, get_lr_cosine_schedule, gradient_clipping
 from flops import training_flops
 from count_params import count_params
 import os
+import subprocess
+from kaggle_secrets import UserSecretsClient
 
 
 def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
@@ -50,6 +52,16 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
     optimizer = AdamW(model.parameters(), lr=max_lr, weight_decay=weight_decay)
 
     os.makedirs('checkpoints', exist_ok=True)
+    secrets = UserSecretsClient()
+    os.environ['KAGGLE_USERNAME'] = secrets.get_secret('KAGGLE_USERNAME')
+    os.environ['KAGGLE_KEY'] = secrets.get_secret('KAGGLE_KEY')
+    with open('checkpoints/dataset-metadata.json', 'w') as f:
+        f.write('{"title": "scaling-laws-checkpoints", "id": "' +
+                os.environ['KAGGLE_USERNAME'] + '/scaling-laws-checkpoints"}')
+    subprocess.run(['kaggle', 'datasets', 'download', '-d',
+                     f"{os.environ['KAGGLE_USERNAME']}/scaling-laws-checkpoints",
+                     '-p', 'checkpoints', '--unzip'], capture_output=True)
+
     ckpt_path = f'checkpoints/{size_name}.pt'
     start_step = 0
     if os.path.exists(ckpt_path):
@@ -93,6 +105,8 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
 
         if step % eval_interval == 0 and step > 0:
             save_checkpoint(model, optimizer, step, ckpt_path)
+            subprocess.run(['kaggle', 'datasets', 'version', '-p', 'checkpoints',
+                             '-m', f'step {step}', '-r', 'zip'], capture_output=True)
 
     elapsed = time.time() - start_time
     final_val_loss = estimate_loss(val_data, eval_iters)
