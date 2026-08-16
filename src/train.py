@@ -5,6 +5,7 @@ import yaml
 import json
 import numpy as np
 import torch
+from torch.cuda.amp import autocast, GradScaler
 from model import TransformerLM, cross_entropy
 from utils import get_device
 from data_utils import get_batch, save_checkpoint
@@ -67,6 +68,7 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
         model.train()
         return sum(losses) / len(losses)
 
+    scaler = GradScaler()
     model.train()
     start_time = time.time()
     for step in range(start_step, total_steps):
@@ -75,13 +77,16 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
             group['lr'] = lr
 
         x, y = get_batch(train_data, batch_size, context_length, device)
-        logits = model(x)
-        loss = cross_entropy(logits, y)
+        with autocast(dtype=torch.float16):
+            logits = model(x)
+            loss = cross_entropy(logits, y)
 
         optimizer.zero_grad()
-        loss.backward()
+        scaler.scale(loss).backward()
+        scaler.unscale_(optimizer)
         gradient_clipping(model.parameters(), max_grad_norm)
-        optimizer.step()
+        scaler.step(optimizer)
+        scaler.update()
 
         if step % log_every == 0:
             print(f'step {step:5d} | lr {lr:.2e} | train_loss {loss.item():.4f}')
