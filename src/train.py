@@ -105,7 +105,7 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
     result = {
         'size': size_name, 'final_train_loss': loss.item(),
         'final_val_loss': final_val_loss, 'total_tokens': total_tokens, 'flops': flops,
-        'elapsed_sec': elapsed, 'steps_per_sec': total_steps / elapsed,
+        'elapsed_sec': elapsed, 'steps_per_sec': (total_steps - start_step) / elapsed,
     }
     with open('results/runs.jsonl', 'a') as f:
         f.write(json.dumps(result) + '\n')
