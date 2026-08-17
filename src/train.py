@@ -49,9 +49,6 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
         num_heads=size_cfg['num_heads'], d_ff=size_cfg['d_ff'], theta=theta,
     ).to(device)
 
-    if device.type == 'cuda':
-        model = torch.compile(model)
-
     optimizer = AdamW(model.parameters(), lr=max_lr, weight_decay=weight_decay)
 
     os.makedirs('checkpoints', exist_ok=True)
@@ -71,6 +68,12 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
         from data_utils import load_checkpoint
         start_step = load_checkpoint(ckpt_path, model, optimizer) + 1
         print(f'resumed from step {start_step}')
+
+    if device.type == 'cuda':
+        model = torch.compile(model)
+
+    if device.type == 'cuda':
+        model = torch.compile(model)
 
     def estimate_loss(data, num_batches):
         model.eval()
