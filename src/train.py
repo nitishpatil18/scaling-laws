@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.amp import autocast, GradScaler
-from model import TransformerLM, cross_entropy
+from model import TransformerLM
 from utils import get_device
 from data_utils import get_batch, save_checkpoint
 from torch.optim import AdamW
@@ -67,8 +67,14 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
     ckpt_path = f'checkpoints/{size_name}.pt'
     start_step = 0
     if os.path.exists(ckpt_path):
-        from data_utils import load_checkpoint
-        start_step = load_checkpoint(ckpt_path, model, optimizer) + 1
+        checkpoint = torch.load(ckpt_path, weights_only=False)
+        model.load_state_dict(checkpoint["model_state"])
+        start_step = checkpoint["iteration"] + 1
+        try:
+            optimizer.load_state_dict(checkpoint["optimizer"])
+        except (KeyError, ValueError, RuntimeError):
+            print('optimizer state incompatible, reinitializing')
+            optimizer = AdamW(model.parameters(), lr=max_lr, weight_decay=weight_decay)
         print(f'resumed from step {start_step}')
 
     def estimate_loss(data, num_batches):
