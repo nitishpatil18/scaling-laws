@@ -5,6 +5,7 @@ import yaml
 import json
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch.amp import autocast, GradScaler
 from model import TransformerLM, cross_entropy
 from utils import get_device
