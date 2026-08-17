@@ -21,7 +21,10 @@ def save_checkpoint(model, optimizer, iteration, out):
     torch.save(checkpoint, out)
 
 def load_checkpoint(src, model, optimizer):
-    checkpoint = torch.load(src)
+    checkpoint = torch.load(src, weights_only=False)
     model.load_state_dict(checkpoint["model_state"])
-    optimizer.load_state_dict(checkpoint["optimizer"])
+    try:
+        optimizer.load_state_dict(checkpoint["optimizer"])
+    except (KeyError, ValueError, RuntimeError):
+        print('optimizer state incompatible, skipping (momentum will rebuild)')
     return checkpoint["iteration"]
