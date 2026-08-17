@@ -49,6 +49,9 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
         num_heads=size_cfg['num_heads'], d_ff=size_cfg['d_ff'], theta=theta,
     ).to(device)
 
+    if device.type == 'cuda':
+        model = torch.compile(model)
+
     optimizer = AdamW(model.parameters(), lr=max_lr, weight_decay=weight_decay)
 
     os.makedirs('checkpoints', exist_ok=True)
