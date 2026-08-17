@@ -14,7 +14,7 @@ class Linear(nn.Module):
         self.weight = nn.Parameter(weight)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return einsum(x, self.weight, "... d_in, d_out d_in -> ... d_out")
+        return F.linear(x, self.weight)
 
 class Embedding(nn.Module):
     def __init__(self, num_embeddings, embedding_dim, device=None, dtype=None):
@@ -116,9 +116,10 @@ class MultiHeadSelfAttention(nn.Module):
         K = self.k_proj(x)
         V = self.v_proj(x)
 
-        Q = rearrange(Q, "... seq (heads d_k) -> ... heads seq d_k", heads=self.num_heads)
-        K = rearrange(K, "... seq (heads d_k) -> ... heads seq d_k", heads=self.num_heads)
-        V = rearrange(V, "... seq (heads d_k) -> ... heads seq d_k", heads=self.num_heads)
+        B = x.shape[0]
+        Q = Q.view(B, seq_len, self.num_heads, self.d_k).transpose(1, 2)
+        K = K.view(B, seq_len, self.num_heads, self.d_k).transpose(1, 2)
+        V = V.view(B, seq_len, self.num_heads, self.d_k).transpose(1, 2)
 
         if self.rope is not None:
             if token_positions is None:
@@ -126,14 +127,9 @@ class MultiHeadSelfAttention(nn.Module):
             Q = self.rope(Q, token_positions)
             K = self.rope(K, token_positions)
 
-        if seq_len not in self.causal_mask_cache:
-            self.causal_mask_cache[seq_len] = torch.tril(
-                torch.ones(seq_len, seq_len, dtype=torch.bool, device=x.device)
-            )
-        causal_mask = self.causal_mask_cache[seq_len]
-        attn_output = scaled_dot_product_attention(Q, K, V, mask=causal_mask)
+        attn_output = F.scaled_dot_product_attention(Q, K, V, is_causal=True)
 
-        attn_output = rearrange(attn_output, "... heads seq d_k -> ... seq (heads d_k)")
+        attn_output = attn_output.transpose(1, 2).contiguous().view(B, seq_len, self.d_model)
         return self.output_proj(attn_output)
 
 class TransformerBlock(nn.Module):

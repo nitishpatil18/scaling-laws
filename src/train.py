@@ -5,11 +5,12 @@ import yaml
 import json
 import numpy as np
 import torch
-from torch.cuda.amp import autocast, GradScaler
+from torch.amp import autocast, GradScaler
 from model import TransformerLM, cross_entropy
 from utils import get_device
 from data_utils import get_batch, save_checkpoint
-from optimizer import AdamW, get_lr_cosine_schedule, gradient_clipping
+from torch.optim import AdamW
+from optimizer import get_lr_cosine_schedule
 from flops import training_flops
 from count_params import count_params
 import os
@@ -75,12 +76,13 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
         with torch.no_grad():
             for _ in range(num_batches):
                 x, y = get_batch(data, batch_size, context_length, device)
-                loss = cross_entropy(model(x), y)
+                logits = model(x)
+                loss = F.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
                 losses.append(loss.item())
         model.train()
         return sum(losses) / len(losses)
 
-    scaler = GradScaler()
+    scaler = GradScaler('cuda')
     model.train()
     start_time = time.time()
     for step in range(start_step, total_steps):
@@ -89,14 +91,14 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
             group['lr'] = lr
 
         x, y = get_batch(train_data, batch_size, context_length, device)
-        with autocast(dtype=torch.float16):
+        with autocast('cuda', dtype=torch.float16):
             logits = model(x)
-            loss = cross_entropy(logits, y)
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
 
         optimizer.zero_grad()
         scaler.scale(loss).backward()
         scaler.unscale_(optimizer)
-        gradient_clipping(model.parameters(), max_grad_norm)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
         scaler.step(optimizer)
         scaler.update()
 
