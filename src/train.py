@@ -69,12 +69,6 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
         start_step = load_checkpoint(ckpt_path, model, optimizer) + 1
         print(f'resumed from step {start_step}')
 
-    if device.type == 'cuda':
-        model = torch.compile(model)
-
-    if device.type == 'cuda':
-        model = torch.compile(model)
-
     def estimate_loss(data, num_batches):
         model.eval()
         losses = []
