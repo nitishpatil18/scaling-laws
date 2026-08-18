@@ -62,6 +62,12 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
         secrets = UserSecretsClient()
         os.environ['KAGGLE_USERNAME'] = secrets.get_secret('KAGGLE_USERNAME')
         os.environ['KAGGLE_KEY'] = secrets.get_secret('KAGGLE_KEY')
+    import json as _json
+    if not ON_KAGGLE:
+        with open(os.path.expanduser('~/.kaggle/kaggle.json')) as _kf:
+            _kaggle_creds = _json.load(_kf)
+            os.environ['KAGGLE_USERNAME'] = _kaggle_creds['username']
+            os.environ['KAGGLE_KEY'] = _kaggle_creds['key']
     with open('checkpoints/dataset-metadata.json', 'w') as f:
         f.write('{"title": "scaling-laws-checkpoints", "id": "' +
                 os.environ['KAGGLE_USERNAME'] + '/scaling-laws-checkpoints"}')
