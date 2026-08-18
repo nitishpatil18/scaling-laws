@@ -114,6 +114,7 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
 
         if step % eval_interval == 0 and step > 0:
             save_checkpoint(model, optimizer, step, ckpt_path)
+        if step % 2000 == 0 and step > 0:
             subprocess.run(['kaggle', 'datasets', 'version', '-p', 'checkpoints',
                              '-m', f'step {step}', '-r', 'zip'], capture_output=True)
 
