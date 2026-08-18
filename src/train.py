@@ -16,7 +16,11 @@ from flops import training_flops
 from count_params import count_params
 import os
 import subprocess
-from kaggle_secrets import UserSecretsClient
+try:
+    from kaggle_secrets import UserSecretsClient
+    ON_KAGGLE = True
+except ImportError:
+    ON_KAGGLE = False
 
 
 def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
@@ -54,9 +58,10 @@ def train(size_name, configs_path='configs/sizes.yaml', tokens_per_param=20,
     optimizer = AdamW(model.parameters(), lr=max_lr, weight_decay=weight_decay)
 
     os.makedirs('checkpoints', exist_ok=True)
-    secrets = UserSecretsClient()
-    os.environ['KAGGLE_USERNAME'] = secrets.get_secret('KAGGLE_USERNAME')
-    os.environ['KAGGLE_KEY'] = secrets.get_secret('KAGGLE_KEY')
+    if ON_KAGGLE:
+        secrets = UserSecretsClient()
+        os.environ['KAGGLE_USERNAME'] = secrets.get_secret('KAGGLE_USERNAME')
+        os.environ['KAGGLE_KEY'] = secrets.get_secret('KAGGLE_KEY')
     with open('checkpoints/dataset-metadata.json', 'w') as f:
         f.write('{"title": "scaling-laws-checkpoints", "id": "' +
                 os.environ['KAGGLE_USERNAME'] + '/scaling-laws-checkpoints"}')
