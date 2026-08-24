@@ -2,3 +2,4 @@
 {"size": "1M", "final_train_loss": 3.346015214920044, "final_val_loss": 3.244140648841858, "total_tokens": 20668416, "flops": 225528464277504.0}
 {"size": "4M", "final_train_loss": 2.2732300758361816, "final_val_loss": 2.230166018009186, "total_tokens": 81035264, "flops": 2827962160250880.0, "elapsed_sec": 5407.869685173035, "steps_per_sec": 1.8291860891399212}
 {"size": "16M", "final_train_loss": 1.6522384881973267, "final_val_loss": 1.59255850315094, "total_tokens": 321331200, "flops": 3.80321233108992e+16, "elapsed_sec": 22749.952809095383, "steps_per_sec": 1.724179400685083}
+{"size": "64M", "final_train_loss": 1.2951645851135254, "final_val_loss": 1.3161695897579193, "total_tokens": 1290780672, "flops": 5.650997303134126e+17, "elapsed_sec": 1058.3331451416016, "steps_per_sec": 1.4787404204283974}
